@@ -12,11 +12,14 @@ interface MouseState {
     vx: number;
     vy: number;
     active: boolean;
+    tapped: boolean;
     smoothSpeed: number;
     idleTimer: number;
     noMoveTimer: number;
     reveal: number;
 }
+
+const TOUCH_JITTER_PX = 3;
 
 const glCanvas = document.getElementById("glCanvas");
 
@@ -31,6 +34,7 @@ const mouse: MouseState = {
     vx: 0,
     vy: 0,
     active: false,
+    tapped: false,
     smoothSpeed: 0,
     idleTimer: 0,
     noMoveTimer: 0,
@@ -56,7 +60,7 @@ async function init(): Promise<void> {
         ...CONFIG.abyssImages.map((item) => loadImage(item.src)),
     ]);
 
-    const particles = new ParticleSystem(CONFIG);
+    const particles = new ParticleSystem(CONFIG, noiseImage);
     const abyssParticles = sampleAbyssParticles(
         CONFIG.abyssImages.map((config, idx) => ({
             config,
@@ -82,7 +86,35 @@ async function init(): Promise<void> {
     window.addEventListener("resize", handleResize);
     handleResize();
 
-    window.addEventListener("mousemove", (e: MouseEvent) => {
+    glCanvas.addEventListener("touchstart", (e: TouchEvent) => e.preventDefault(), {
+        passive: false,
+    });
+
+    window.addEventListener("pointerdown", (e: PointerEvent) => {
+        if (!e.isPrimary) {
+            return;
+        }
+        const glX = e.clientX;
+        const glY = height - e.clientY;
+        const wasActive = mouse.active;
+        mouse.x = glX;
+        mouse.y = glY;
+        mouse.moveDx = 0;
+        mouse.moveDy = 0;
+        mouse.vx = 0;
+        mouse.vy = 0;
+        mouse.smoothSpeed = 0;
+        mouse.noMoveTimer = 0;
+        mouse.active = true;
+        if (wasActive) {
+            mouse.tapped = true;
+        }
+    });
+
+    window.addEventListener("pointermove", (e: PointerEvent) => {
+        if (!e.isPrimary) {
+            return;
+        }
         const glX = e.clientX;
         const glY = height - e.clientY;
         if (!mouse.active) {
@@ -93,14 +125,20 @@ async function init(): Promise<void> {
             mouse.active = true;
             return;
         }
-        mouse.moveDx += glX - mouse.x;
-        mouse.moveDy += glY - mouse.y;
+        const dx = glX - mouse.x;
+        const dy = glY - mouse.y;
+        if (e.pointerType === "touch" && Math.hypot(dx, dy) < TOUCH_JITTER_PX) {
+            return;
+        }
+        mouse.moveDx += dx;
+        mouse.moveDy += dy;
         mouse.x = glX;
         mouse.y = glY;
     });
 
     function resetToInitialState(): void {
         mouse.active = false;
+        mouse.tapped = false;
         mouse.x = 0;
         mouse.y = 0;
         mouse.moveDx = 0;
@@ -119,7 +157,9 @@ async function init(): Promise<void> {
         lastTime = now;
         const timeSec = now / 1000;
 
-        const movedThisFrame = mouse.moveDx !== 0 || mouse.moveDy !== 0;
+        const movedThisFrame =
+            mouse.tapped || mouse.moveDx !== 0 || mouse.moveDy !== 0;
+        mouse.tapped = false;
         const instVx = dt > 1e-4 ? mouse.moveDx / dt : 0;
         const instVy = dt > 1e-4 ? mouse.moveDy / dt : 0;
         mouse.moveDx = 0;

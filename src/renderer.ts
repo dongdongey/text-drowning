@@ -86,6 +86,7 @@ export class Renderer {
     private readonly u_abyssDpr: WebGLUniformLocation | null;
     private readonly u_abyssTime: WebGLUniformLocation | null;
     private readonly u_abyssReveal: WebGLUniformLocation | null;
+    private readonly u_abyssNoiseTex: WebGLUniformLocation | null;
 
     cssWidth = 1;
     cssHeight = 1;
@@ -192,23 +193,25 @@ export class Renderer {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.surfaceVbo);
         gl.bufferData(
             gl.ARRAY_BUFFER,
-            config.particleCount * 4 * Float32Array.BYTES_PER_ELEMENT,
+            config.particleCount * 5 * Float32Array.BYTES_PER_ELEMENT,
             gl.DYNAMIC_DRAW,
         );
         gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 16, 0);
+        gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 20, 0);
+        gl.enableVertexAttribArray(1);
+        gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 20, 16);
 
         gl.bindVertexArray(this.abyssVao);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.abyssVbo);
         gl.bufferData(gl.ARRAY_BUFFER, abyssParticles.data, gl.STATIC_DRAW);
         gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 36, 0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 40, 0);
         gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 36, 8);
+        gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 40, 8);
         gl.enableVertexAttribArray(2);
-        gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 36, 16);
+        gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 40, 16);
         gl.enableVertexAttribArray(3);
-        gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 36, 24);
+        gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 40, 24);
         gl.bindVertexArray(null);
 
         this.uniforms = {
@@ -282,6 +285,13 @@ export class Renderer {
             this.abyssParticlesProgram,
             "u_reveal",
         );
+        this.u_abyssNoiseTex = gl.getUniformLocation(
+            this.abyssParticlesProgram,
+            "u_noiseTex",
+        );
+
+        gl.useProgram(this.abyssParticlesProgram);
+        gl.uniform1i(this.u_abyssNoiseTex, 2);
 
         gl.useProgram(this.mainProgram);
         gl.uniform1i(this.uniforms.u_surfaceTex, 0);
@@ -506,7 +516,7 @@ export class Renderer {
             gl.bufferSubData(
                 gl.ARRAY_BUFFER,
                 0,
-                surfaceRenderData.subarray(0, surfaceVisibleCount * 4),
+                surfaceRenderData.subarray(0, surfaceVisibleCount * 5),
             );
             gl.useProgram(this.surfaceParticlesProgram);
             gl.bindVertexArray(this.surfaceVao);
@@ -523,6 +533,8 @@ export class Renderer {
             gl.enable(gl.BLEND);
             gl.blendEquation(gl.FUNC_ADD);
             gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, this.noiseTex);
             gl.useProgram(this.abyssParticlesProgram);
             gl.bindVertexArray(this.abyssVao);
             gl.uniform2f(this.u_abyssCssRes, this.cssWidth, this.cssHeight);

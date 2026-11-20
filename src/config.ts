@@ -54,7 +54,7 @@ export const CONFIG: Config = {
     abyssText: ["빠져서 없어짐", "수고하세요"],
 
     // Surface particle physics & cursor spotlight reveal
-    particleCount: 9000,
+    particleCount: 6000,
     abyssImages: [
         {
             src: laughingCatUrl,
@@ -62,19 +62,19 @@ export const CONFIG: Config = {
             y: 1.0,
             anchorX: 1.0,
             anchorY: 1.0,
-            heightRatio: 0.52,
-            particleCount: 4500,
-            gamma: 2.2,
+            heightRatio: 0.7,
+            particleCount: 5000,
+            gamma: 1.7,
         },
         {
             src: shockingCatUrl,
-            x: 0.4,
+            x: 0.0,
             y: 1.0,
-            anchorX: 1.0,
+            anchorX: 0.0,
             anchorY: 1.0,
-            heightRatio: 0.6,
-            particleCount: 4500,
-            gamma: 2.2,
+            heightRatio: 0.8,
+            particleCount: 6000,
+            gamma: 1.2,
         },
     ],
     mouseRadius: 135,
