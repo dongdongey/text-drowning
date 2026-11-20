@@ -23,8 +23,9 @@ const TOUCH_JITTER_PX = 3;
 
 const glCanvas = document.getElementById("glCanvas");
 
-let width = window.innerWidth;
-let height = window.innerHeight;
+let width = 0;
+let height = 0;
+let currentDpr = 0;
 
 const mouse: MouseState = {
     x: 0,
@@ -55,10 +56,12 @@ async function init(): Promise<void> {
         throw new Error("Missing #glCanvas element.");
     }
 
+    const fontsReady = document.fonts.ready;
     const [noiseImage, ...abyssImages] = await Promise.all([
         loadImage(noiseTextureUrl),
         ...CONFIG.abyssImages.map((item) => loadImage(item.src)),
     ]);
+    await fontsReady;
 
     const particles = new ParticleSystem(CONFIG, noiseImage);
     const abyssParticles = sampleAbyssParticles(
@@ -76,11 +79,17 @@ async function init(): Promise<void> {
     );
 
     function handleResize(): void {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const nextW = window.innerWidth;
+        const nextH = window.innerHeight;
+        const nextDpr = Math.min(window.devicePixelRatio || 1, 2);
+        if (nextW === width && nextH === height && nextDpr === currentDpr) {
+            return;
+        }
+        width = nextW;
+        height = nextH;
+        currentDpr = nextDpr;
         particles.resize(width, height);
-        renderer.resize(width, height, dpr);
+        renderer.resize(width, height, nextDpr);
     }
 
     window.addEventListener("resize", handleResize);
@@ -179,12 +188,14 @@ async function init(): Promise<void> {
             }
         }
 
-        const mouseGlX = width > 0 ? mouse.x / width : 0.5;
-        const mouseGlY = height > 0 ? mouse.y / height : 0.5;
-        const distToTarget = Math.hypot(
-            mouseGlX - CONFIG.blindSpot.x,
-            mouseGlY - CONFIG.blindSpot.y,
-        );
+        const mouseGlX = mouse.active && width > 0 ? mouse.x / width : 0.5;
+        const mouseGlY = mouse.active && height > 0 ? mouse.y / height : 0.5;
+        const minDim = Math.min(width, height) || 1;
+        const distToTarget =
+            Math.hypot(
+                mouse.x - width * CONFIG.blindSpot.x,
+                mouse.y - height * CONFIG.blindSpot.y,
+            ) / minDim;
 
         const isInZone = mouse.active && distToTarget < CONFIG.zoneRadius;
         const isStill =

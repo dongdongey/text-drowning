@@ -93,6 +93,7 @@ export class Renderer {
     dpr = 1;
     physWidth = 1;
     physHeight = 1;
+    private trailFadeSec = 0;
 
     constructor(
         canvas: HTMLCanvasElement,
@@ -110,6 +111,13 @@ export class Renderer {
             throw new Error("WebGL2 is not supported in this browser.");
         }
         this.gl = gl;
+
+        canvas.addEventListener("webglcontextlost", (e) => {
+            e.preventDefault();
+        });
+        canvas.addEventListener("webglcontextrestored", () => {
+            window.location.reload();
+        });
 
         this.abyssCanvas = document.createElement("canvas");
         const aCtx = this.abyssCanvas.getContext("2d");
@@ -448,6 +456,7 @@ export class Renderer {
         gl.clearColor(0, 0, 0, 0);
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.trailFbo);
         gl.clear(gl.COLOR_BUFFER_BIT);
+        this.trailFadeSec = 0;
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.abyssParticlesFbo);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -483,46 +492,63 @@ export class Renderer {
         gl.viewport(0, 0, this.physWidth, this.physHeight);
 
         // Pass 1: Surface particle trail FBO (fade existing trails + draw visible particles)
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.trailFbo);
-        gl.enable(gl.BLEND);
-
-        const keep = Math.pow(0.42, dt * 60.0);
-        const fadeAlpha = 1.0 - keep;
-        gl.useProgram(this.fadeProgram);
-        gl.bindVertexArray(this.emptyVao);
-        gl.blendEquation(gl.FUNC_ADD);
-        gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
-        gl.uniform4f(this.u_fadeColor, 0, 0, 0, fadeAlpha);
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-        // Prevent 8-bit UNORM truncation from stalling faint trails at 1/255 on high-Hz displays
-        if (keep >= 0.5) {
-            gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
-            gl.blendFunc(gl.ONE, gl.ONE);
-            gl.uniform4f(
-                this.u_fadeColor,
-                1 / 255,
-                1 / 255,
-                1 / 255,
-                1 / 255,
-            );
-            gl.drawArrays(gl.TRIANGLES, 0, 3);
-        }
-
         if (surfaceVisibleCount > 0) {
-            gl.blendEquation(gl.FUNC_ADD);
-            gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.surfaceVbo);
-            gl.bufferSubData(
-                gl.ARRAY_BUFFER,
-                0,
-                surfaceRenderData.subarray(0, surfaceVisibleCount * 5),
-            );
-            gl.useProgram(this.surfaceParticlesProgram);
-            gl.bindVertexArray(this.surfaceVao);
-            gl.uniform2f(this.u_surfaceCssRes, this.cssWidth, this.cssHeight);
-            gl.uniform1f(this.u_surfaceDpr, this.dpr);
-            gl.drawArrays(gl.POINTS, 0, surfaceVisibleCount);
+            this.trailFadeSec = 0.5;
+        }
+        if (surfaceVisibleCount > 0 || this.trailFadeSec > 0) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.trailFbo);
+            if (surfaceVisibleCount === 0) {
+                this.trailFadeSec = Math.max(0, this.trailFadeSec - dt);
+            }
+            if (surfaceVisibleCount === 0 && this.trailFadeSec === 0) {
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+            } else {
+                gl.enable(gl.BLEND);
+
+                const keep = Math.pow(0.42, dt * 60.0);
+                const fadeAlpha = 1.0 - keep;
+                gl.useProgram(this.fadeProgram);
+                gl.bindVertexArray(this.emptyVao);
+                gl.blendEquation(gl.FUNC_ADD);
+                gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
+                gl.uniform4f(this.u_fadeColor, 0, 0, 0, fadeAlpha);
+                gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+                // Prevent 8-bit UNORM truncation from stalling faint trails at 1/255 on high-Hz displays
+                if (keep >= 0.5) {
+                    gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
+                    gl.blendFunc(gl.ONE, gl.ONE);
+                    gl.uniform4f(
+                        this.u_fadeColor,
+                        1 / 255,
+                        1 / 255,
+                        1 / 255,
+                        1 / 255,
+                    );
+                    gl.drawArrays(gl.TRIANGLES, 0, 3);
+                }
+
+                if (surfaceVisibleCount > 0) {
+                    gl.blendEquation(gl.FUNC_ADD);
+                    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, this.surfaceVbo);
+                    gl.bufferSubData(
+                        gl.ARRAY_BUFFER,
+                        0,
+                        surfaceRenderData.subarray(0, surfaceVisibleCount * 5),
+                    );
+                    gl.useProgram(this.surfaceParticlesProgram);
+                    gl.bindVertexArray(this.surfaceVao);
+                    gl.uniform2f(
+                        this.u_surfaceCssRes,
+                        this.cssWidth,
+                        this.cssHeight,
+                    );
+                    gl.uniform1f(this.u_surfaceDpr, this.dpr);
+                    gl.drawArrays(gl.POINTS, 0, surfaceVisibleCount);
+                }
+            }
         }
 
         // Pass 2: Static abyss particle VBO animated entirely in vertex shader

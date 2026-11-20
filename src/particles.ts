@@ -1,7 +1,6 @@
 import type { AbyssImageConfig, Config } from "./config";
 
-const KOREAN_FONT_STACK =
-    '"Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+const KOREAN_FONT_STACK = '"Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
 const NOISE_FIELD_SIZE = 128;
 
 class NoiseField {
@@ -361,15 +360,6 @@ export class ParticleSystem {
             let pvy = vy[i];
             let pvis = vis[i];
 
-            const fx = px * 0.0045 + timeSec * 0.05;
-            const fy = py * 0.0045 - timeSec * 0.035;
-            const eps = 0.015;
-            const fn0 = noise.sample(fx, fy);
-            const fnx = noise.sample(fx + eps, fy);
-            const fny = noise.sample(fx, fy + eps);
-            const flowX = (fny - fn0) * 26.0;
-            const flowY = -(fnx - fn0) * 26.0;
-
             let targetVis = 0;
             if (mouse.active) {
                 const dx = px - mouse.x;
@@ -437,6 +427,24 @@ export class ParticleSystem {
             } else {
                 pvis *= visDecay;
             }
+
+            if (pvis < 0.005 && targetVis === 0 && sinkProgress <= 0.001) {
+                x[i] = ox[i];
+                y[i] = oy[i];
+                vx[i] = 0;
+                vy[i] = 0;
+                vis[i] = 0;
+                continue;
+            }
+
+            const fx = px * 0.0045 + timeSec * 0.05;
+            const fy = py * 0.0045 - timeSec * 0.035;
+            const eps = 0.015;
+            const fn0 = noise.sample(fx, fy);
+            const fnx = noise.sample(fx + eps, fy);
+            const fny = noise.sample(fx, fy + eps);
+            const flowX = (fny - fn0) * 26.0;
+            const flowY = -(fnx - fn0) * 26.0;
 
             if (sinkProgress > 0.001) {
                 const toCx = cx - px;

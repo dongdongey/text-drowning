@@ -16,7 +16,8 @@ out float v_tone;
 void main() {
     float clampedReveal = clamp(u_reveal, 0.0, 1.0);
     float scatter = pow(1.0 - clampedReveal, 2.0) * 32.0;
-    vec2 basePos = a_anchor * u_cssRes + a_offsetH * u_cssRes.y;
+    float scaleH = min(u_cssRes.y, u_cssRes.x * 0.65);
+    vec2 basePos = a_anchor * u_cssRes + a_offsetH * scaleH;
     vec2 flowUv =
         (basePos / max(u_cssRes.y, 1.0)) * 0.55 +
         vec2(u_time * 0.032, -u_time * 0.024);
@@ -30,7 +31,7 @@ void main() {
     vec2 pos = basePos + flow + swirlDir * scatter;
     vec2 ndc = (pos / max(u_cssRes, vec2(1.0))) * 2.0 - 1.0;
     gl_Position = vec4(ndc, 0.0, 1.0);
-    float sizeScale = clamp(u_cssRes.y / 900.0, 0.72, 1.25);
+    float sizeScale = clamp(scaleH / 900.0, 0.52, 1.25);
     gl_PointSize = a_meta.x * sizeScale * u_dpr;
     v_alpha = a_meta.z;
     v_tone = a_meta.w;
