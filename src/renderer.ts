@@ -17,8 +17,7 @@ type MainUniformName =
     | "u_noiseFlowSpeed"
     | "u_warpStrength"
     | "u_edgeWidth"
-    | "u_vortexWallCol"
-    | "u_abyssDepthCol";
+    | "u_vortexWallCol";
 
 export interface RenderFrameParams {
     dt: number;
@@ -259,10 +258,6 @@ export class Renderer {
                 this.mainProgram,
                 "u_vortexWallCol",
             ),
-            u_abyssDepthCol: gl.getUniformLocation(
-                this.mainProgram,
-                "u_abyssDepthCol",
-            ),
         };
 
         this.u_fadeColor = gl.getUniformLocation(
@@ -313,10 +308,6 @@ export class Renderer {
         gl.uniform3fv(
             this.uniforms.u_vortexWallCol,
             hexToRgb01(config.colors.vortexWall),
-        );
-        gl.uniform3fv(
-            this.uniforms.u_abyssDepthCol,
-            hexToRgb01(config.colors.abyssDepth),
         );
     }
 

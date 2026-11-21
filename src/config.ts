@@ -8,7 +8,6 @@ export interface Point2D {
 
 export interface ThemeColors {
     vortexWall: string;
-    abyssDepth: string;
     abyssText: string | string[];
 }
 
@@ -103,7 +102,6 @@ export const CONFIG: Config = {
     // Matte colors (no glow/neon)
     colors: {
         vortexWall: "#3d4557",
-        abyssDepth: "#26262e",
         abyssText: ["#f2f2f5", "#e03131"],
     },
 };

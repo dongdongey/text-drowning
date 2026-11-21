@@ -21,7 +21,6 @@ uniform float u_warpStrength;
 uniform float u_edgeWidth;
 
 uniform vec3 u_vortexWallCol;
-uniform vec3 u_abyssDepthCol;
 
 out vec4 outColor;
 
@@ -83,24 +82,6 @@ float computeSurfaceVortex(vec2 p, vec2 mouseOffset, float timeSec, float expand
     return value;
 }
 
-// 3D pitch/yaw matrix for subtle perspective tilt
-mat3 rot2Axis(float pitch, float yaw) {
-    float cp = cos(pitch), sp = sin(pitch);
-    float cy = cos(yaw), sy = sin(yaw);
-
-    mat3 rx = mat3(
-            1.0, 0.0, 0.0,
-            0.0, cp, -sp,
-            0.0, sp, cp
-        );
-    mat3 ry = mat3(
-            cy, 0.0, sy,
-            0.0, 1.0, 0.0,
-            -sy, 0.0, cy
-        );
-    return rx * ry;
-}
-
 void main() {
     vec2 uv = gl_FragCoord.xy / u_res;
     float aspect = u_res.x / u_res.y;
@@ -114,7 +95,6 @@ void main() {
     }
 
     vec2 pGrid = (uv - 0.5) * vec2(aspect, 1.0);
-    vec2 viewAngle = (u_mouse - u_target) * 3.5;
 
     float mask = 0.0;
     float suctionFactor = 0.0;
@@ -180,55 +160,13 @@ void main() {
         surfaceCol = vortexBg * (1.0 - surfSample.a) + surfSample.rgb;
     }
 
-    // Matte cel Abyss Layer: flat dark void with discrete Z-depth shadow & crisp text
+    // Matte cel Abyss Layer: flat dark void with crisp text & abyss particles
     vec3 abyssCol = vec3(0.02, 0.02, 0.028);
     if (mask > 0.5) {
-        float yaw = -viewAngle.x * 0.12;
-        float pitch = viewAngle.y * 0.12;
-
-        mat3 cardRot = rot2Axis(pitch, yaw);
-        vec3 axisU = cardRot * vec3(1.0, 0.0, 0.0);
-        vec3 axisV = cardRot * vec3(0.0, 1.0, 0.0);
-        vec3 cardNormal = cardRot * vec3(0.0, 0.0, -1.0);
-
-        // Camera ray in aspect-corrected viewport coordinates (focal = 1.45)
-        vec3 rd = vec3(pGrid, 1.45);
-        float denom = dot(rd, cardNormal);
-
-        vec4 frontSample = vec4(0.0);
-        float depthAlpha = 0.0;
-
-        if (abs(denom) > 1e-4) {
-            vec3 planeCenter = vec3(0.0, 0.0, 1.45);
-            float t0 = dot(planeCenter, cardNormal) / denom;
-            if (t0 > 0.0) {
-                vec3 rel0 = rd * t0 - planeCenter;
-                vec2 frontUv = vec2(
-                    dot(rel0, axisU) / aspect + 0.5,
-                    dot(rel0, axisV) + 0.5
-                );
-                if (frontUv.x > 0.0 && frontUv.x < 1.0 && frontUv.y > 0.0 && frontUv.y < 1.0) {
-                    frontSample = texture(u_abyssTex, frontUv);
-                }
-
-                vec2 depthStepUv = vec2(
-                    -dot(rd, axisU) / (denom * aspect),
-                    -dot(rd, axisV) / denom
-                ) + viewAngle * 0.25;
-
-                for (int i = 1; i <= 4; i++) {
-                    vec2 sliceUv = frontUv + depthStepUv * (float(i) * 0.03);
-                    if (sliceUv.x > 0.0 && sliceUv.x < 1.0 && sliceUv.y > 0.0 && sliceUv.y < 1.0) {
-                        depthAlpha = max(depthAlpha, texture(u_abyssTex, sliceUv).a);
-                    }
-                }
-            }
-        }
-
+        vec4 frontSample = texture(u_abyssTex, uv);
         vec4 abyssImgSample = texture(u_abyssImgTex, uv);
-        abyssCol = abyssCol * (1.0 - abyssImgSample.a) + abyssImgSample.rgb;
-        abyssCol = mix(abyssCol, u_abyssDepthCol, step(0.35, depthAlpha));
         abyssCol = abyssCol * (1.0 - frontSample.a) + frontSample.rgb;
+        abyssCol = abyssCol * (1.0 - abyssImgSample.a) + abyssImgSample.rgb;
     }
 
     vec3 finalCol = mix(surfaceCol, abyssCol, mask);
